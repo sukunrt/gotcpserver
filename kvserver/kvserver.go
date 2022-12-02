@@ -1,7 +1,7 @@
 package kvserver
 
 import (
-	"fmt"
+	"io"
 	"net"
 )
 
@@ -25,21 +25,19 @@ func (s *Server) Start() {
 }
 
 func handleConnection(conn net.Conn) {
-	b := make([]byte, 4)
-	rb := 0
-	wb := 0
+	conn.(*net.TCPConn).SetNoDelay(false)
+	b := make([]byte, 10000)
 	for {
 		n, err := conn.Read(b)
-		rb += n
 		if err != nil {
-			fmt.Println("failed in read", "read", rb, "wrote", wb, err)
-			break
+			if err == io.EOF {
+				break
+			}
+			panic(err)
 		}
-		n, err = conn.Write(b[:n])
-		wb += n
+		_, err = conn.Write(b[:n])
 		if err != nil {
-			fmt.Println("failed in write", "read", rb, "wrote", wb, err)
-			break
+			panic(err)
 		}
 	}
 	conn.Close()

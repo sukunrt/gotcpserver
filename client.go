@@ -19,23 +19,44 @@ func formatSpeed(numBytes int, d time.Duration) string {
 	return fmt.Sprintf("%0.2f %s", speed, unit)
 }
 
+func sendBytes(conn *net.TCPConn, total int, batchSize int) {
+	b := make([]byte, batchSize)
+	sent := 0
+	received := 0
+	for sent < total {
+		conn.SetWriteDeadline(time.Now().Add(time.Duration(100 * time.Millisecond)))
+		n, err := conn.Write(b)
+		if err != nil && !err.(net.Error).Timeout() {
+			panic(err)
+		}
+		sent += n
+		n, err = conn.Read(b)
+		if err != nil {
+			panic(err)
+		}
+		received += n
+	}
+	for received < sent {
+		n, err := conn.Read(b)
+		if err != nil {
+			panic(err)
+		}
+		received += n
+	}
+}
+
 func main() {
-	conn, err := net.Dial("tcp", "localhost:8888")
+	total := 10000000
+	batchSize := 10000
+	c, err := net.Dial("tcp", "localhost:8888")
 	if err != nil {
 		panic(err)
 	}
+	conn := c.(*net.TCPConn)
+	conn.SetNoDelay(false)
 	st := time.Now()
-	b := make([]byte, 100)
-	nn := len(b)
-	n, err := conn.Write(b)
-	fmt.Println("write", n, err)
-	if err != nil {
-		panic(err)
-	}
-	n, err = conn.Read(b)
-	fmt.Println(n, err)
+	sendBytes(conn, total, batchSize)
 	d := time.Since(st)
 	conn.Close()
-	time.Sleep(1)
-	fmt.Printf("Wrote %d bytes at %s\n", n*nn, formatSpeed(n*nn, d))
+	fmt.Printf("Wrote %d bytes at %s\n", total, formatSpeed(total, d))
 }
