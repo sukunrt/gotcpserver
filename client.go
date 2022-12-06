@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
 	"time"
@@ -22,32 +23,23 @@ func formatSpeed(numBytes int, d time.Duration) string {
 func sendBytes(conn *net.TCPConn, total int, batchSize int) {
 	b := make([]byte, batchSize)
 	sent := 0
-	received := 0
 	for sent < total {
 		conn.SetWriteDeadline(time.Now().Add(time.Duration(100 * time.Millisecond)))
 		n, err := conn.Write(b)
+		if n != len(b) {
+			fmt.Printf("Could only write: %d bytes\n", n)
+		}
 		if err != nil && !err.(net.Error).Timeout() {
 			panic(err)
 		}
 		sent += n
-		n, err = conn.Read(b)
-		if err != nil {
-			panic(err)
-		}
-		received += n
-	}
-	for received < sent {
-		n, err := conn.Read(b)
-		if err != nil {
-			panic(err)
-		}
-		received += n
 	}
 }
 
 func main() {
-	total := 10000000
-	batchSize := 10000
+	total := flag.Int("total", 1000, "total bytes to be sent over the network")
+	batchSize := flag.Int("batch", 100, "batch size of a single transaction")
+	flag.Parse()
 	c, err := net.Dial("tcp", "localhost:8888")
 	if err != nil {
 		panic(err)
@@ -55,8 +47,8 @@ func main() {
 	conn := c.(*net.TCPConn)
 	conn.SetNoDelay(false)
 	st := time.Now()
-	sendBytes(conn, total, batchSize)
+	sendBytes(conn, *total, *batchSize)
 	d := time.Since(st)
 	conn.Close()
-	fmt.Printf("Wrote %d bytes at %s\n", total, formatSpeed(total, d))
+	fmt.Printf("Wrote %d bytes at %s\n", *total, formatSpeed(*total, d))
 }

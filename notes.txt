@@ -1,0 +1,7 @@
+Effect of batch size on read write speeds
+
+1. Batch size should influence system calls
+    - how much time to read 10 mb data depending on batch sizes
+    - how much time to write 10 mb data depending on batch sizes
+2. the piping system to move data between two separate half connections is as slow as a 
+   read write system. 

@@ -1,8 +1,13 @@
 package main
 
-import "kvserver/kvserver"
+import (
+	"flag"
+	"kvserver/kvserver"
+)
 
 func main() {
-	server := kvserver.Server{Host: "127.0.0.1", Port: "8888"}
+	batchSize := flag.Int("batch", 10, "batch size for the echo server")
+	flag.Parse()
+	server := kvserver.Server{Host: "localhost", Port: "8888", BatchSize: *batchSize}
 	server.Start()
 }

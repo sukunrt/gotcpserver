@@ -6,8 +6,9 @@ import (
 )
 
 type Server struct {
-	Host string
-	Port string
+	Host      string
+	Port      string
+	BatchSize int
 }
 
 func (s *Server) Start() {
@@ -20,13 +21,16 @@ func (s *Server) Start() {
 		if err != nil {
 			panic(err)
 		}
-		go handleConnection(conn)
+		c := conn.(*net.TCPConn)
+		ch := make(chan []byte, 100000)
+		go s.readConnection(c, ch)
 	}
 }
 
-func handleConnection(conn net.Conn) {
-	conn.(*net.TCPConn).SetNoDelay(false)
-	b := make([]byte, 10000)
+func (s *Server) readConnection(conn *net.TCPConn, ch chan []byte) {
+	conn.SetReadBuffer(10 * 1000 * 1000)
+	b := make([]byte, s.BatchSize)
+	totalRead := 0
 	for {
 		n, err := conn.Read(b)
 		if err != nil {
@@ -35,10 +39,25 @@ func handleConnection(conn net.Conn) {
 			}
 			panic(err)
 		}
-		_, err = conn.Write(b[:n])
+		totalRead += n
+		if totalRead >= 1000*1000*10 {
+			break
+		}
+	}
+	conn.Close()
+}
+
+func (s *Server) writeConnection(conn *net.TCPConn, ch chan []byte) {
+	conn.SetWriteBuffer(10 * 1000 * 1000)
+	conn.SetNoDelay(false)
+	for {
+		b := <-ch
+		if len(b) == 0 {
+			break
+		}
+		_, err := conn.Write(b)
 		if err != nil {
 			panic(err)
 		}
 	}
-	conn.Close()
 }
